@@ -1,0 +1,25 @@
+<document>
+    <meta>
+        <title>Title of the document goes here</title>
+        <title>Title of the document goes here</title>
+        <author>
+            <name>Name of author goes here</name>
+            <gender>Gender of the author goes here</gender>
+        </author>
+        <publication>
+            <name>Name of publication</name>
+            <year>Year it was published</year>
+            <city>City in which it was published</city>
+            <link>Link to online resource</link>
+            <copyright-holder />
+        </publication>
+        <num-words>Number of words in the document</num-words>
+        <contains-non-languages>Specify if the document contains languages other than urdu</contains-non-languages>
+    </meta>
+    <body>
+        <section>
+            <p>A para will go here.</p>
+            <blockquote>A blockquote should go here.</blockquote>
+        </section>
+    </body>
+</document>
