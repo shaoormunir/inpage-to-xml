@@ -3,6 +3,22 @@ from xml.etree.ElementTree import tostring
 import os
 import string
 from xml.sax.saxutils import unescape
+import regex as re
+
+remove_leading_space_regex = r"(?r)\s[۔،:\(\[“‘]"
+remove_trailing_space_regex = r"(?r)[\)\]”’]\s"
+add_trailing_space_regex = r"(?r)[۔،:\(\[“‘][^\s]"
+add_leading_space_regex = r"(?r)[^\s][\)\]”’]"
+double_space_regex = r"(?r)[ ]{2,}"
+floating_character_regex = r"(?r)[^و]"
+zer_regex = r"(?r) ِ"
+footnote_regex = r"(?r)حوالہ جات|مآخذ"
+double_quotes_regex = r"(?r)’’"
+inverted_double_quotes_regex = r"(?r)‘‘"
+floating_number_regex = r"(?)[٠-٩]|$[٠-٩]{2}$"
+
+def replace_str_index(text,index=0,replacement=''):
+    return '%s%s%s'%(text[:index],replacement,text[index+1:])
 
 def add_section (section):
     children = section.getchildren()
@@ -20,6 +36,24 @@ def check_if_eng_alphabet(symbol):
         return True
     else:
         return False
+
+def create_attention_text(original_text, attention_type):
+    attention = xml.Element(attention_type)
+    attention.text = original_text
+    return unescape(tostring(attention, encoding='unicode'))
+
+def check_if_para_needs_attention(para):
+    para_text = para.text
+
+    # Floating letter is disabled because it is tagging each and every letter in its current form   
+    # para_text = re.sub(floating_character_regex, lambda m: create_attention_text(para_text[m.start():m.end()], "attention-floating-letter") , para_text)
+
+    para_text = re.sub(zer_regex, lambda m: create_attention_text(para_text[m.start():m.end()], "attention-zer"), para_text)
+
+    para_text = re.sub(floating_number_regex, lambda m: create_attention_text(para_text[m.start():m.end()], "attention-number"), para_text)
+
+    para.text = para_text
+    return para
 
 def generate_xml (filepath):
     output_filepath = filepath.replace(".txt", ".xml")
@@ -77,6 +111,7 @@ def generate_xml (filepath):
 
     for symbol in text_data:
         if previous_symbol == ":" and symbol == "\n":
+            para = check_if_para_needs_attention(para)
             if blockquote_running:
                 blockquote_running = False
                 if len(blockquote.getchildren()) > 0:
@@ -123,6 +158,7 @@ def generate_xml (filepath):
             elif para_running:
                 para.text += symbol
             else:
+                para = check_if_para_needs_attention(para)
                 if blockquote_running:
                     blockquote_running = False
                     blockquote.append(para)
@@ -135,22 +171,61 @@ def generate_xml (filepath):
         previous_symbol = symbol
 
     body.append(section)
-    # body subelements
     root.append(meta)
     root.append(body)
 
     with open(output_filepath, "w") as f:
         f.write(unescape(tostring(root, encoding='unicode')))
 
-
+# [٠١٢٣٥٦٧٨٩]
 def pre_process(filename):
     with open(filename, encoding='utf-8') as f:
         data = f.read()
-    print (data)
-    remove_leading_space_regex = "\s[۔،:\(\[“‘]"
-    remove_trailing_space_regex = "[\)\]”’]\s"
-    add_trailing_space_regex = "[۔،:\(\[“‘][^\s]"
-    add_leading_space_regex = "[^\s][\)\]”’]"
-    double_space_regex = "/\s\s/"
+        
+    # remove footnote from the text
+    p = re.compile(footnote_regex)
 
-pre_process("test-utf.txt")
+    while p.search(data) != None:
+        match = p.search(data)
+        data = data[:match.start()]
+
+    # removing leading spaces
+    p = re.compile(remove_leading_space_regex)
+    for m in p.finditer(data):
+        data = replace_str_index(data, m.start(), '')
+    
+    # removing trailing spaces
+    p = re.compile(remove_trailing_space_regex)
+    for m in p.finditer(data):
+        data = replace_str_index(data, m.end(), '')
+    
+    # adding a leading space
+    p = re.compile(add_leading_space_regex)
+    for m in p.finditer(data):
+        first_character = data[m.start()+1]
+        data = replace_str_index(data, m.start()+1, first_character + " ")
+    
+    # adding a trailing space
+    p = re.compile(add_trailing_space_regex)
+    for m in p.finditer(data):
+        last_character = data[m.end()-2]
+        data = replace_str_index(data, m.end()-2," " +  last_character )
+
+    # Removing double spaces
+    p = re.compile(double_space_regex)
+
+    while p.search(data) != None:
+        for m in p.finditer(data):
+            data = replace_str_index(data, m.start(), "")
+
+    # Remvoing double quotes
+    data = re.sub(double_quotes_regex, '”', data)
+    data = re.sub(inverted_double_quotes_regex, '“', data)
+
+   
+    with open("processed.txt", "w", encoding='utf-8') as f:
+        f.write(data)
+
+
+pre_process("test2.txt")
+generate_xml("processed.txt")
